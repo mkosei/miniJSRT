@@ -14,6 +14,65 @@ impl Tokenizer {
                 self.skip_whitespace();
                 continue;
             }
+
+            if c.is_ascii_alphabetic() {
+                let ident = self.read_ident();
+                tokens.push(Token::Ident(ident));
+            } else if c.is_ascii_digit() {
+                let number = self.read_number();
+                tokens.push(Token::Number(number));
+            } else if c == '"' {
+                let string = self.read_string();
+                tokens.push(Token::String(string));
+            } else {
+                match c {
+                    '(' => tokens.push(Token::LParen(c)),
+                    ')' => tokens.push(Token::RPares(c)),
+                    ',' => tokens.push(Token::Comma(c)),
+                    _ => panic!("Unexpected char: {}", c),
+                }
+                self.advance();
+            }
+            tokens
+        }
+
+        fn read_ident(&mut self) -> String {
+            let mut s = String::new();
+            while let Some(c) = self.current() {
+                if c.is_ascii_alphabetic() || c == '_' {
+                    s.push(c);
+                    self.advance();
+                } else {
+                    break;
+                }
+            }
+            s
+        }
+
+        fn read_number(&mut self) -> i64 {
+            let mut s = String::new();
+            while let Some(c) = self.current() {
+                if c.is_ascii_digit {
+                    s.push(c);
+                    self.advance();
+                } else {
+                    break;
+                }
+            }
+            s.parse().unwrap();
+        }
+
+        fn read_string(&mut self) -> String {
+            let mut s = String::new();
+            while let Some(c) = self.current() {
+                if c == '"' {
+                    self.advance();
+                    break;
+                }
+                s.push(c);
+                self.advance
+            }
+            s
         }
     }
 
@@ -23,6 +82,7 @@ impl Tokenizer {
             pos: 0,
         }
     }
+
     //現在の文字を返す
     fn current(&self) -> Option<char> {
         self.input.get(self.pos).copied()
