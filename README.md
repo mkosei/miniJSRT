@@ -1,4 +1,6 @@
-Learning by building a small JavaScript runtime from scratch.(2025 12/29　start)<br>
+Learning by building a small JavaScript runtime from scratch.(2025 12/29開始)<br>
+*Log*
+2026.010.04>今まではParserなども自前で実装していたが、ランタイム部分に注力するためv8を使用。<br>
 
 
 
