@@ -1,3 +1,1 @@
-print("hello")
-print("world")
-print(123)
+print("hello from js");

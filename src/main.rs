@@ -1,61 +1,41 @@
-mod ast;
-mod compiler;
-mod chunk;
-mod value;
-mod opcode;
-
-use crate::ast::{Expr,Stmt};
-use crate::compiler::Compiler;
-
+use std::env;
+use std::fs;
+use  rusty_v8 as v8;
 fn main() {
-    let ast = vec![
-        Stmt::Print(Expr::String("hello".to_string())),
-        Stmt::Print(Expr::String("world".to_string())),
-    ];
 
-    let mut compiler = Compiler::new();
+    let filename = env::args().nth(1).expect("js file required");
+    let code = fs::read_to_string(filename).expect("failed to read file");
 
-    for stmt in ast {
-        compiler.compile_stmt(stmt);
-    }
+    let platform = v8::new_default_platform(0, false).make_shared();
+    v8::V8::initialize_platform(platform);
+    v8::V8::initialize();
 
-    compiler.chunk.emit(crate::opcode::Op::Halt);
-    println!("Bytecode:");
+    let isolate = &mut v8::Isolate::new(Default::default());
+    let handle_scope = &mut v8::HandleScope::new(isolate);
+    let context = v8::Context::new(handle_scope);
+    let scope = &mut v8::ContextScope::new(handle_scope, context);
 
-    for (i, val) in compiler.chunk.constants.iter().enumerate() {
-        println!("{}: {:?}", i, val);
-    }
+
+    let global = context.global(scope);
+
+    let print_fn = v8::Function::new(scope, print_callback).unwrap();
+    let name = v8::String::new(scope, "print").unwrap();
+
+    global.set(scope, name.into(), print_fn.into());
+
+    let source = v8::String::new(scope, &   code).unwrap();
+
+    let script = v8::Script::compile(scope, source, None).unwrap();
+    script.run(scope).unwrap();
+
 
 }
 
-// mod parse;
-// mod token;
-// mod tokenizer;
-
-// use parse::Expr;
-// use parse::Parser;
-// use tokenizer::Tokenizer;
-
-// use std::env;
-// use std::fs;
-
-// fn main() {
-//     let path = env::args().nth(1).expect("No input file specified");
-//     let code = fs::read_to_string(path).expect("Failed to read the file");
-//     let mut t = Tokenizer::new(&code);
-//     let tokens = t.tokenize();
-
-//     let mut p = Parser::new(tokens);
-//     let exprs = p.parse();
-
-//     for expr in exprs {
-//         match expr {
-//             Expr::PrintString(s) => print!("{}", s),
-//             Expr::PrintNumber(n) => print!("{}", n),
-//         }
-//     }
-//     println!();
-// }
-
-//ASTを捨ててBytecodeコンパイラを作成することで分岐の深さや、CPU負荷などの問題を解決
-
+fn print_callback(
+    scope: &mut v8::HandleScope,
+    args: v8::FunctionCallbackArguments,
+    mut _retval: v8::ReturnValue,
+) {
+    let msg = args.get(0).to_rust_string_lossy(scope);
+    println!("{}", msg);
+}
