@@ -1,4 +1,5 @@
 pub mod v8;
+pub mod callbacks;
 
 pub struct Runtime {
     engine: v8::V8Engine,

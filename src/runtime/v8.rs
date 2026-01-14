@@ -1,9 +1,16 @@
-use std::path::Path;
+use std::{collections::VecDeque, path::Path};
 use std::fs;
-use rusty_v8 as v8;
+use rusty_v8::{self as v8, OwnedIsolate};
+use std::sync::{Arc, Mutex};
+
+use crate::runtime::callbacks::{print_callback, fetch_callback};
+
+pub type JsTask = Box<dyn FnOnce(&mut v8::HandleScope) + Send>;
+
 
 pub struct V8Engine {
     isolate: v8::OwnedIsolate,
+    tasks: Arc<Mutex<VecDeque<JsTask>>>,
 }
 
 impl V8Engine {
@@ -13,8 +20,28 @@ impl V8Engine {
         v8::V8::initialize();
 
         let isolate = v8::Isolate::new(Default::default());
-        Self { isolate }
+        Self { isolate, tasks: Arc::new(Mutex::new(VecDeque::new()))  }
     }
+
+    pub fn enqueue_task(&self, task: JsTask) {
+        self.tasks.lock().unwrap().push_back(task);
+    }
+
+    pub fn get_task_queue(&self) -> Arc<Mutex<VecDeque<JsTask>>> {
+        Arc::clone(&self.tasks)
+    }
+
+    pub fn isolate_handle_scope(&mut self) -> &mut v8::HandleScope {
+        // 新規 handle scope 作成して返す
+        // ここでは簡易的に self.isolate を返す想定
+        // 実際は ContextScope と組み合わせて使う
+        todo!()
+    }
+
+    pub fn perform_microtasks(&mut self) {
+        self.isolate.perform_microtask_checkpoint();
+    }
+
 
     pub fn run_file(&mut self, filename: std::path::PathBuf) {
         if !Path::new(&filename).exists() {
@@ -41,7 +68,11 @@ impl V8Engine {
         let print_fn = v8::Function::new(scope, print_callback).unwrap();
         let name = v8::String::new(scope, "print").unwrap();
 
+        let fetch_fn = v8::Function::new(scope, fetch_callback).unwrap();
+        let fetch_name = v8::String::new(scope, "fetch").unwrap();
+
         global.set(scope, name.into(), print_fn.into());
+        global.set(scope, fetch_name.into(), fetch_fn.into());
 
         let source = v8::String::new(scope, source).unwrap();
 
@@ -50,11 +81,3 @@ impl V8Engine {
     }
 }   
 
-fn print_callback(
-    scope: &mut v8::HandleScope,
-    args: v8::FunctionCallbackArguments,
-    mut _retval: v8::ReturnValue,
-) {
-    let msg = args.get(0).to_rust_string_lossy(scope);
-    println!("{}", msg);
-}
